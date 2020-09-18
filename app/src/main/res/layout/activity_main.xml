@@ -6,49 +6,105 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Launch Nasos"
+    <ImageView
+        android:layout_width="150dp"
+        android:layout_height="200dp"
+        android:src="@drawable/background_icon"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
 
-    <androidx.appcompat.widget.AppCompatImageButton
-        android:id="@+id/launch_bt2"
-        android:layout_width="55dp"
-        android:layout_height="55dp"
-        android:background="@android:color/transparent"
-        app:layout_constraintBottom_toBottomOf="@+id/launch_bt3"
-        app:layout_constraintEnd_toStartOf="@+id/launch_bt3"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/launch_bt"
-        app:layout_constraintTop_toTopOf="@+id/launch_bt3"
-        app:layout_constraintVertical_bias="0.0" />
-
-    <androidx.appcompat.widget.AppCompatImageButton
-        android:id="@+id/launch_bt"
-        android:layout_width="55dp"
-        android:layout_height="55dp"
-        android:background="@android:color/transparent"
-        app:layout_constraintBottom_toBottomOf="@+id/launch_bt2"
-        app:layout_constraintEnd_toStartOf="@+id/launch_bt2"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/launch_bt2"
-        app:layout_constraintVertical_bias="0.0" />
-
-    <androidx.appcompat.widget.AppCompatImageButton
-        android:id="@+id/launch_bt3"
-        android:layout_width="55dp"
-        android:layout_height="55dp"
-        android:background="@android:color/transparent"
+    <GridView
+        android:id="@+id/gridView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="200dp"
+        android:gravity="center"
+        android:horizontalSpacing="15dp"
+        android:numColumns="3"
+        android:padding="20dp"
+        android:verticalSpacing="24dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/launch_bt2"
-        tools:layout_editor_absoluteY="232dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
+        android:id="@+id/mobileDataToggle"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="68dp"
+        android:background="@color/colorPrimaryDark"
+        android:src="@drawable/ic_baseline_perm_data_setting_24"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/gridView" />
+
+    <ImageButton
+        android:id="@+id/refreshBT"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginEnd="24dp"
+        android:background="@color/colorAccent"
+        android:src="@android:drawable/ic_popup_sync"
+        app:layout_constraintBottom_toBottomOf="@+id/relativeLayout1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/relativeLayout1"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:text="ინტერნეტი"
+        android:textColor="@android:color/white"
+        app:layout_constraintBottom_toTopOf="@+id/mobileDataToggle"
+        app:layout_constraintStart_toStartOf="@+id/mobileDataToggle" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:text="ბატარია"
+        android:textColor="@android:color/white"
+        app:layout_constraintBottom_toTopOf="@+id/relativeLayout1"
+        app:layout_constraintEnd_toEndOf="@+id/relativeLayout1"
+        app:layout_constraintStart_toStartOf="@+id/relativeLayout1" />
+
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:text="განახლება"
+        android:textColor="@android:color/white"
+        app:layout_constraintBottom_toTopOf="@+id/refreshBT"
+        app:layout_constraintEnd_toEndOf="@+id/refreshBT" />
+
+    <RelativeLayout
+        android:id="@+id/relativeLayout1"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="45dp"
+        android:layout_marginEnd="45dp"
+        android:gravity="center"
+        app:layout_constraintBottom_toBottomOf="@+id/mobileDataToggle"
+        app:layout_constraintEnd_toStartOf="@+id/refreshBT"
+        app:layout_constraintStart_toEndOf="@+id/mobileDataToggle"
+        app:layout_constraintTop_toTopOf="@+id/mobileDataToggle">
+
+        <ProgressBar
+            android:id="@+id/batteryProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/colorAccentDark"
+
+            android:progress="100" />
+    </RelativeLayout>
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

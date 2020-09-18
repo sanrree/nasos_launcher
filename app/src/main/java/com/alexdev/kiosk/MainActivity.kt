@@ -2,20 +2,21 @@ package com.alexdev.kiosk
 
 import android.app.admin.DevicePolicyManager
 import android.app.admin.SystemUpdatePolicy
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
 import android.content.pm.PackageManager
+import android.content.pm.PackageManager.GET_META_DATA
 import android.graphics.drawable.Drawable
+import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.os.UserManager
-import android.util.Log
+import android.provider.Settings
+import android.telephony.TelephonyManager
 import android.view.View
 import android.view.WindowManager
+import android.widget.GridView
 import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.TextView
+import android.widget.ProgressBar
+import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 
 
@@ -24,6 +25,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mDevicePolicyManager: DevicePolicyManager
 
     private val KIOSK_PACKAGE: String = "com.alexdev.kiosk"
+
+    val allowedPackages = arrayOf("com.artmedia.nasosi","com.google.android.apps.maps","com.android.vending","com.viber.voip","com.android.settings","com.whatsapp","ru.yandex.yandexnavi")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,42 +39,103 @@ class MainActivity : AppCompatActivity() {
 
         mDevicePolicyManager.removeActiveAdmin(mAdminComponentName)
 
-        val textView = findViewById<TextView>(R.id.textView);
+        // val textView = findViewById<TextView>(R.id.textView);
 
-        textView.text = if (isAdmin()) "Admin" else "Not Admin"
+        //  textView.text = if (isAdmin()) "Admin" else "Not Admin"
 
         setKioskPolicies(true)
 
-        val launchBT = findViewById<ImageButton>(R.id.launch_bt)
+        val gridView = findViewById<GridView>(R.id.gridView)
 
 
+        val apps : MutableList<AppView> = mutableListOf<AppView>()
+
+        allowedPackages.forEach {
+            addApp(it)?.let { appView ->
+                apps.add(appView);
+            }
+        }
+
+        gridView.setAdapter(MyGridAdapter(this,apps.toTypedArray()))
+
+        gridView.setOnItemClickListener { _, _, i, _ ->
+            run {
+                apps[i]?.let {
+                    val launchIntent = packageManager.getLaunchIntentForPackage(it.packageName);
+                    launchIntent?.let { intent ->
+                        startActivity(intent)
+                    }
+                }
+            }
+        }
+
+        val imageButton = findViewById<ImageButton>(R.id.mobileDataToggle)
+
+        imageButton.setOnClickListener {
+            setMobileDataEnabled()
+        }
+
+        val refreshBT = findViewById<ImageButton>(R.id.refreshBT)
+
+        refreshBT.setOnClickListener {
+            finish()
+            startActivity(intent)
+        }
     }
 
-//    private fun addApp(packageName: String) {
-//        try {
-//            val icon: Drawable = packageManager.getApplicationIcon("com.artmedia.nasosi")
-//            launchBT.setImageDrawable(icon)
-//        } catch (e: PackageManager.NameNotFoundException) {
-//            e.printStackTrace()
-//        }
-//
-//        launchBT.setOnClickListener {
-//            val launchIntent = packageManager.getLaunchIntentForPackage("com.artmedia.nasosi")
-//            Log.i("TAG",(launchIntent == null).toString())
-//            launchIntent?.let { startActivity(it) }
-//        }
-//    }
+        private fun addApp(packageName: String) : AppView? {
+        try {
+            val icon: Drawable = packageManager.getApplicationIcon(packageName)
+            val name: String = packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName,GET_META_DATA)).toString()
+
+            return  AppView(name,icon,packageName);
+
+        } catch (e: PackageManager.NameNotFoundException) {
+            e.printStackTrace()
+        }
+
+        return  null;
+    }
 
     private fun isAdmin() = mDevicePolicyManager.isDeviceOwnerApp(packageName)
 
-    private fun setKioskPolicies(enable: Boolean) {
-//            setRestrictions(enable)
-//            setUpdatePolicy(enable)
-//            setAsHomeApp(enable)
-//            setKeyGuardEnabled(enable)
+    fun setMobileDataEnabled() {
+        val intent = Intent(Intent.ACTION_MAIN)
+        intent.component = ComponentName(
+            "com.android.settings",
+            "com.android.settings.Settings\$DataUsageSummaryActivity"
+        )
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        startActivity(intent)
+    }
 
-       // setLockTask(enable)
-       // setImmersiveMode(enable)
+    private fun setKioskPolicies(enable: Boolean) {
+   //        setRestrictions(enable)
+//            setUpdatePolicy(enable)
+         //   setAsHomeApp(enable)
+            setKeyGuardEnabled(enable)
+
+     setLockTask(enable)
+        // setImmersiveMode(enable)
+    }
+
+    private fun batteryLevel() {
+        val batteryLevelReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                context.unregisterReceiver(this)
+                val rawlevel = intent.getIntExtra("level", -1)
+                val scale = intent.getIntExtra("scale", -1)
+                var level = -1
+                if (rawlevel >= 0 && scale > 0) {
+                    level = rawlevel * 100 / scale
+                }
+               // batterLevel.setText("Battery Level Remaining: $level%")
+                val batteryLevelProgress = findViewById<ProgressBar>(R.id.batteryProgress)
+                batteryLevelProgress.progress = level
+            }
+        }
+        val batteryLevelFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        registerReceiver(batteryLevelReceiver, batteryLevelFilter)
     }
 
     private fun setRestrictions(disallow: Boolean) {
@@ -90,8 +154,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setLockTask(start: Boolean) {
-            mDevicePolicyManager.setLockTaskPackages(
-                mAdminComponentName, if (start) arrayOf(packageName) else arrayOf())
+        val list: MutableList<String> = allowedPackages.toMutableList()
+        list.add(packageName)
+
+        mDevicePolicyManager.setLockTaskPackages(
+            mAdminComponentName, if (start) list.toTypedArray() else arrayOf())
 
         if (start) {
             startLockTask()
