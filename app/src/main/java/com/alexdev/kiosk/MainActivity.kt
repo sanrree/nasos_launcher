@@ -13,10 +13,7 @@ import android.provider.Settings
 import android.telephony.TelephonyManager
 import android.view.View
 import android.view.WindowManager
-import android.widget.GridView
-import android.widget.ImageButton
-import android.widget.ProgressBar
-import android.widget.ToggleButton
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 
 
@@ -39,14 +36,9 @@ class MainActivity : AppCompatActivity() {
 
         mDevicePolicyManager.removeActiveAdmin(mAdminComponentName)
 
-        // val textView = findViewById<TextView>(R.id.textView);
-
-        //  textView.text = if (isAdmin()) "Admin" else "Not Admin"
-
         setKioskPolicies(true)
 
         val gridView = findViewById<GridView>(R.id.gridView)
-
 
         val apps : MutableList<AppView> = mutableListOf<AppView>()
 
@@ -81,6 +73,8 @@ class MainActivity : AppCompatActivity() {
             finish()
             startActivity(intent)
         }
+
+        batteryLevel();
     }
 
         private fun addApp(packageName: String) : AppView? {
@@ -100,23 +94,17 @@ class MainActivity : AppCompatActivity() {
     private fun isAdmin() = mDevicePolicyManager.isDeviceOwnerApp(packageName)
 
     fun setMobileDataEnabled() {
-        val intent = Intent(Intent.ACTION_MAIN)
-        intent.component = ComponentName(
-            "com.android.settings",
-            "com.android.settings.Settings\$DataUsageSummaryActivity"
-        )
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val intent =  Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS);
         startActivity(intent)
     }
 
     private fun setKioskPolicies(enable: Boolean) {
-   //        setRestrictions(enable)
-//            setUpdatePolicy(enable)
-         //   setAsHomeApp(enable)
-            setKeyGuardEnabled(enable)
-
-     setLockTask(enable)
-        // setImmersiveMode(enable)
+        setRestrictions(enable)
+        //setUpdatePolicy(enable)
+        setAsHomeApp(enable)
+        setKeyGuardEnabled(enable)
+        setLockTask(enable)
+        setImmersiveMode(enable)
     }
 
     private fun batteryLevel() {
@@ -129,7 +117,7 @@ class MainActivity : AppCompatActivity() {
                 if (rawlevel >= 0 && scale > 0) {
                     level = rawlevel * 100 / scale
                 }
-               // batterLevel.setText("Battery Level Remaining: $level%")
+                findViewById<TextView>(R.id.batteryPercent).text = "$level%"
                 val batteryLevelProgress = findViewById<ProgressBar>(R.id.batteryProgress)
                 batteryLevelProgress.progress = level
             }

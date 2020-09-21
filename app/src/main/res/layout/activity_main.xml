@@ -49,9 +49,9 @@
         android:layout_marginEnd="24dp"
         android:background="@color/colorAccent"
         android:src="@android:drawable/ic_popup_sync"
-        app:layout_constraintBottom_toBottomOf="@+id/relativeLayout1"
+        app:layout_constraintBottom_toBottomOf="@+id/linearLayout1"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/relativeLayout1"
+        app:layout_constraintTop_toTopOf="@+id/linearLayout1"
         app:layout_constraintVertical_bias="0.0" />
 
     <TextView
@@ -69,9 +69,9 @@
         android:layout_marginBottom="5dp"
         android:text="ბატარია"
         android:textColor="@android:color/white"
-        app:layout_constraintBottom_toTopOf="@+id/relativeLayout1"
-        app:layout_constraintEnd_toEndOf="@+id/relativeLayout1"
-        app:layout_constraintStart_toStartOf="@+id/relativeLayout1" />
+        app:layout_constraintBottom_toTopOf="@+id/linearLayout1"
+        app:layout_constraintEnd_toEndOf="@+id/linearLayout1"
+        app:layout_constraintStart_toStartOf="@+id/linearLayout1" />
 
     <TextView
         android:id="@+id/textView3"
@@ -83,27 +83,37 @@
         app:layout_constraintBottom_toTopOf="@+id/refreshBT"
         app:layout_constraintEnd_toEndOf="@+id/refreshBT" />
 
-    <RelativeLayout
-        android:id="@+id/relativeLayout1"
+    <LinearLayout
+        android:id="@+id/linearLayout1"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginStart="45dp"
         android:layout_marginEnd="45dp"
-        android:gravity="center"
         app:layout_constraintBottom_toBottomOf="@+id/mobileDataToggle"
         app:layout_constraintEnd_toStartOf="@+id/refreshBT"
         app:layout_constraintStart_toEndOf="@+id/mobileDataToggle"
-        app:layout_constraintTop_toTopOf="@+id/mobileDataToggle">
-
+        app:layout_constraintTop_toTopOf="@+id/mobileDataToggle"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        >
+        <TextView
+            android:id="@+id/batteryPercent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:textColor="@android:color/white"
+            android:text="30%"
+            android:layout_centerHorizontal="true"
+            />
         <ProgressBar
             android:id="@+id/batteryProgress"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:background="@color/colorAccentDark"
-
             android:progress="100" />
-    </RelativeLayout>
+    </LinearLayout>
 
 
 
