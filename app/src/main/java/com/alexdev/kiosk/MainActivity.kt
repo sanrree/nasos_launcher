@@ -7,10 +7,12 @@ import android.content.pm.PackageManager
 import android.content.pm.PackageManager.GET_META_DATA
 import android.graphics.drawable.Drawable
 import android.net.wifi.WifiManager
+import android.os.BatteryManager
 import android.os.Bundle
 import android.os.UserManager
 import android.provider.Settings
 import android.telephony.TelephonyManager
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
@@ -23,7 +25,16 @@ class MainActivity : AppCompatActivity() {
 
     private val KIOSK_PACKAGE: String = "com.alexdev.kiosk"
 
-    val allowedPackages = arrayOf("com.artmedia.nasosi","com.google.android.apps.maps","com.android.vending","com.viber.voip","com.android.settings","com.whatsapp","ru.yandex.yandexnavi")
+    val allowedPackages = arrayOf(
+        "com.artmedia.nasosi",
+        "com.google.android.apps.maps",
+        "com.android.vending",
+        "com.viber.voip",
+        "com.android.settings",
+        "com.whatsapp",
+        "ru.yandex.yandexnavi",
+        "com.vgc.volumeandbrightnesscontrol"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,15 +43,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         mAdminComponentName = AdminReceiver.getComponentName(this)
-        mDevicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        mDevicePolicyManager =
+            getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
 
         mDevicePolicyManager.removeActiveAdmin(mAdminComponentName)
 
-        setKioskPolicies(true)
-
         val gridView = findViewById<GridView>(R.id.gridView)
 
-        val apps : MutableList<AppView> = mutableListOf<AppView>()
+        val apps: MutableList<AppView> = mutableListOf<AppView>()
 
         allowedPackages.forEach {
             addApp(it)?.let { appView ->
@@ -48,7 +58,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        gridView.setAdapter(MyGridAdapter(this,apps.toTypedArray()))
+        gridView.setAdapter(MyGridAdapter(this, apps.toTypedArray()))
 
         gridView.setOnItemClickListener { _, _, i, _ ->
             run {
@@ -75,26 +85,35 @@ class MainActivity : AppCompatActivity() {
         }
 
         batteryLevel();
+
+        if (isAdmin()) {
+            setKioskPolicies(true)
+        }
     }
 
-        private fun addApp(packageName: String) : AppView? {
+    private fun addApp(packageName: String): AppView? {
         try {
             val icon: Drawable = packageManager.getApplicationIcon(packageName)
-            val name: String = packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName,GET_META_DATA)).toString()
+            val name: String = packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(
+                    packageName,
+                    GET_META_DATA
+                )
+            ).toString()
 
-            return  AppView(name,icon,packageName);
+            return AppView(name, icon, packageName);
 
         } catch (e: PackageManager.NameNotFoundException) {
             e.printStackTrace()
         }
 
-        return  null;
+        return null;
     }
 
     private fun isAdmin() = mDevicePolicyManager.isDeviceOwnerApp(packageName)
 
     fun setMobileDataEnabled() {
-        val intent =  Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS);
+        val intent = Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS);
         startActivity(intent)
     }
 
@@ -104,13 +123,12 @@ class MainActivity : AppCompatActivity() {
         setAsHomeApp(enable)
         setKeyGuardEnabled(enable)
         setLockTask(enable)
-        setImmersiveMode(enable)
+        //setImmersiveMode(enable)
     }
 
     private fun batteryLevel() {
         val batteryLevelReceiver: BroadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                context.unregisterReceiver(this)
                 val rawlevel = intent.getIntExtra("level", -1)
                 val scale = intent.getIntExtra("scale", -1)
                 var level = -1
@@ -120,6 +138,17 @@ class MainActivity : AppCompatActivity() {
                 findViewById<TextView>(R.id.batteryPercent).text = "$level%"
                 val batteryLevelProgress = findViewById<ProgressBar>(R.id.batteryProgress)
                 batteryLevelProgress.progress = level
+
+                val charger = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                val plugged =
+                    charger == BatteryManager.BATTERY_PLUGGED_AC ||
+                            charger == BatteryManager.BATTERY_PLUGGED_USB ||
+                            charger == BatteryManager.BATTERY_PLUGGED_WIRELESS;
+
+                Log.i("AAAAA", plugged.toString());
+
+                batteryLevelProgress.setBackgroundColor(getColor(if (plugged) R.color.colorAccentDark else R.color.notCharingColor));
+
             }
         }
         val batteryLevelFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
@@ -146,7 +175,8 @@ class MainActivity : AppCompatActivity() {
         list.add(packageName)
 
         mDevicePolicyManager.setLockTaskPackages(
-            mAdminComponentName, if (start) list.toTypedArray() else arrayOf())
+            mAdminComponentName, if (start) list.toTypedArray() else arrayOf()
+        )
 
         if (start) {
             startLockTask()
@@ -157,8 +187,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun setUpdatePolicy(enable: Boolean) {
         if (enable) {
-            mDevicePolicyManager.setSystemUpdatePolicy(mAdminComponentName,
-                SystemUpdatePolicy.createWindowedInstallPolicy(60, 120))
+            mDevicePolicyManager.setSystemUpdatePolicy(
+                mAdminComponentName,
+                SystemUpdatePolicy.createWindowedInstallPolicy(60, 120)
+            )
         } else {
             mDevicePolicyManager.setSystemUpdatePolicy(mAdminComponentName, null)
         }
@@ -171,10 +203,14 @@ class MainActivity : AppCompatActivity() {
                 addCategory(Intent.CATEGORY_DEFAULT)
             }
             mDevicePolicyManager.addPersistentPreferredActivity(
-                mAdminComponentName, intentFilter, ComponentName(packageName, MainActivity::class.java.name))
+                mAdminComponentName,
+                intentFilter,
+                ComponentName(packageName, MainActivity::class.java.name)
+            )
         } else {
             mDevicePolicyManager.clearPackagePersistentPreferredActivities(
-                mAdminComponentName, packageName)
+                mAdminComponentName, packageName
+            )
         }
     }
 
