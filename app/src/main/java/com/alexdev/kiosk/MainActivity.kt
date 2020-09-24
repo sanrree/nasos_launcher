@@ -161,7 +161,8 @@ class MainActivity : AppCompatActivity() {
         setUserRestriction(UserManager.DISALLOW_ADD_USER, disallow)
         setUserRestriction(UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, disallow)
         setUserRestriction(UserManager.DISALLOW_ADJUST_VOLUME, disallow)
-        mDevicePolicyManager.setStatusBarDisabled(mAdminComponentName, disallow)
+        setUserRestriction(UserManager.DISALLOW_CONFIG_TETHERING, disallow)
+       // mDevicePolicyManager.setStatusBarDisabled(mAdminComponentName, disallow)
     }
 
     private fun setUserRestriction(restriction: String, disallow: Boolean) = if (disallow) {
