@@ -18,7 +18,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8px"
         android:text="App Name"
-        android:textAlignment="center"
+        android:textAlignment="textStart"
         android:textColor="@android:color/white"
         android:textSize="14dp"></TextView>
 

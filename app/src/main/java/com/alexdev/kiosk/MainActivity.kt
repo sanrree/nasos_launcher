@@ -1,27 +1,39 @@
 package com.alexdev.kiosk
 
+import android.app.PendingIntent
 import android.app.admin.DevicePolicyManager
+import android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_HOME
+import android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS
 import android.app.admin.SystemUpdatePolicy
 import android.content.*
+import android.content.pm.PackageInstaller
+import android.content.pm.PackageInstaller.ACTION_SESSION_COMMITTED
+import android.content.pm.PackageInstaller.SessionParams
 import android.content.pm.PackageManager
 import android.content.pm.PackageManager.GET_META_DATA
+import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
-import android.net.wifi.WifiManager
+import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.os.UserManager
 import android.provider.Settings
-import android.telephony.TelephonyManager
 import android.util.Log
+import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import java.net.URL
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var mAdminComponentName: ComponentName
     private lateinit var mDevicePolicyManager: DevicePolicyManager
+
+    private var kioskEnabled : Boolean = false;
 
     private val KIOSK_PACKAGE: String = "com.alexdev.kiosk"
 
@@ -45,8 +57,6 @@ class MainActivity : AppCompatActivity() {
         mAdminComponentName = AdminReceiver.getComponentName(this)
         mDevicePolicyManager =
             getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-
-        mDevicePolicyManager.removeActiveAdmin(mAdminComponentName)
 
         val gridView = findViewById<GridView>(R.id.gridView)
 
@@ -84,11 +94,30 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        val exitBT = findViewById<Button>(R.id.exit_button)
+
+        exitBT.setOnClickListener {
+            if (isAdmin()) {
+                kioskEnabled = !kioskEnabled
+
+                setKioskPolicies(kioskEnabled)
+
+                exitBT.text = if(kioskEnabled) "გამორთვა" else "ჩართვა"
+
+            }
+        }
+
         batteryLevel();
 
-        if (isAdmin()) {
-            setKioskPolicies(true)
-        }
+        addHomeButton()
+
+//        Thread(Runnable {
+//            try {
+//                test.installPackage(this,"http://192.168.43.18/tmp/app-release.apk")
+//            } catch (ex: Exception) {
+//                ex.printStackTrace()
+//            }
+//        }).start()
     }
 
     private fun addApp(packageName: String): AppView? {
@@ -124,6 +153,10 @@ class MainActivity : AppCompatActivity() {
         setKeyGuardEnabled(enable)
         setLockTask(enable)
         //setImmersiveMode(enable)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            mDevicePolicyManager.setLockTaskFeatures(mAdminComponentName, LOCK_TASK_FEATURE_HOME or LOCK_TASK_FEATURE_NOTIFICATIONS)
+        };
     }
 
     private fun batteryLevel() {
@@ -159,8 +192,8 @@ class MainActivity : AppCompatActivity() {
         setUserRestriction(UserManager.DISALLOW_SAFE_BOOT, disallow)
         setUserRestriction(UserManager.DISALLOW_FACTORY_RESET, disallow)
         setUserRestriction(UserManager.DISALLOW_ADD_USER, disallow)
-        setUserRestriction(UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, disallow)
-        setUserRestriction(UserManager.DISALLOW_ADJUST_VOLUME, disallow)
+        setUserRestriction(UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, false)
+         setUserRestriction(UserManager.DISALLOW_ADJUST_VOLUME, false)
         setUserRestriction(UserManager.DISALLOW_CONFIG_TETHERING, disallow)
        // mDevicePolicyManager.setStatusBarDisabled(mAdminComponentName, disallow)
     }
@@ -239,4 +272,97 @@ class MainActivity : AppCompatActivity() {
     override fun onBackPressed() {
         return
     }
+
+    private fun addHomeButton(){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            }
+        }
+
+
+        val mLauncherHeader = LayoutInflater.from(this).inflate(R.layout.home_button, null)
+
+        val LAYOUT_FLAG: Int
+        LAYOUT_FLAG = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            LAYOUT_FLAG,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                    or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                    or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+
+
+        params.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+
+        params.height = 100
+        params.width = 130
+
+        val mWindowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+       mWindowManager.addView(mLauncherHeader, params)
+
+        val homeBT = mLauncherHeader.findViewById<ImageButton>(R.id.home_bt)
+
+        homeBT.setOnClickListener {
+            startActivity(intent)
+        }
+    }
 }
+
+
+
+class test {
+    companion object {
+    fun installPackage(context: Context,fileUrl:String) {
+        val pi = context.packageManager.packageInstaller
+        val sessId: Int = pi.createSession(SessionParams(SessionParams.MODE_FULL_INSTALL))
+
+        val session: PackageInstaller.Session = pi.openSession(sessId)
+
+        val fileBuffer = URL(fileUrl).readBytes()
+        var sizeBytes: Long = fileBuffer.size.toLong()
+
+        var inputStream = fileBuffer.inputStream()
+        var out = session.openWrite("my_app_session", 0, sizeBytes)
+
+        var total = 0
+        val buffer = ByteArray(65536)
+        var c: Int
+
+        while (inputStream.read(buffer).also { c = it } != -1) {
+            total += c
+            out.write(buffer, 0, c)
+        }
+
+        session.fsync(out)
+        inputStream.close()
+        out.close()
+
+        println("InstallApkViaPackageInstaller - Success: streamed apk $total bytes")
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            sessId,
+            Intent(ACTION_SESSION_COMMITTED),
+            0
+        )
+       session.commit(pendingIntent.intentSender)
+       session.close()
+    }
+    }
+}
+
+
+
