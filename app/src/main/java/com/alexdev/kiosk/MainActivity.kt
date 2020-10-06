@@ -1,6 +1,9 @@
 package com.alexdev.kiosk
 
+import android.app.AlertDialog
+import android.app.Dialog
 import android.app.PendingIntent
+import android.app.ProgressDialog
 import android.app.admin.DevicePolicyManager
 import android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_HOME
 import android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS
@@ -26,6 +29,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.serialization.json.Json
 import java.net.URL
 
 
@@ -111,13 +115,20 @@ class MainActivity : AppCompatActivity() {
 
         addHomeButton()
 
-//        Thread(Runnable {
-//            try {
-//                test.installPackage(this,"http://192.168.43.18/tmp/app-release.apk")
-//            } catch (ex: Exception) {
-//                ex.printStackTrace()
-//            }
-//        }).start()
+        Thread(Runnable {
+            try {
+                val shouldUpdate = test.checkPackageVersion(this)
+
+                if(shouldUpdate){
+                    val progressDialog = Dialog(this)
+                    progressDialog.setContentView(R.layout.progress_layout)
+                    progressDialog.show()
+                }
+            } catch (ex: Exception) {
+                println("errorrrrr:   " + ex.message)
+                ex.printStackTrace()
+            }
+        }).start()
     }
 
     private fun addApp(packageName: String): AppView? {
@@ -326,43 +337,66 @@ class MainActivity : AppCompatActivity() {
 
 class test {
     companion object {
-    fun installPackage(context: Context,fileUrl:String) {
-        val pi = context.packageManager.packageInstaller
-        val sessId: Int = pi.createSession(SessionParams(SessionParams.MODE_FULL_INSTALL))
+        fun checkPackageVersion(context: Context) : Boolean {
+            val text = URL("http://artmedia.ge/app/nasos_launcher").readText()
+            val data = Json.parseJson(text)
+            val url = data.jsonObject["update_url"].toString()
+            val version = data.jsonObject["version"].toString()
 
-        val session: PackageInstaller.Session = pi.openSession(sessId)
+            try {
+                val appInfo = context.packageManager.getPackageInfo("com.artmedia.nasosi", 0)
+                println(appInfo.versionName)
+                println(version)
 
-        val fileBuffer = URL(fileUrl).readBytes()
-        var sizeBytes: Long = fileBuffer.size.toLong()
+                if (version != appInfo.versionName) {
+                    test.installPackage(context, url)
+                    return true
+                }
+            }catch (e: java.lang.Exception){
+                println(e)
+                return false
+            }
 
-        var inputStream = fileBuffer.inputStream()
-        var out = session.openWrite("my_app_session", 0, sizeBytes)
-
-        var total = 0
-        val buffer = ByteArray(65536)
-        var c: Int
-
-        while (inputStream.read(buffer).also { c = it } != -1) {
-            total += c
-            out.write(buffer, 0, c)
+            return false
         }
 
-        session.fsync(out)
-        inputStream.close()
-        out.close()
+        fun installPackage( context: Context,fileUrl: String) {
+            val pi = context.packageManager.packageInstaller
+            val sessId: Int = pi.createSession(SessionParams(SessionParams.MODE_FULL_INSTALL))
 
-        println("InstallApkViaPackageInstaller - Success: streamed apk $total bytes")
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            sessId,
-            Intent(ACTION_SESSION_COMMITTED),
-            0
-        )
-       session.commit(pendingIntent.intentSender)
-       session.close()
-    }
+            val session: PackageInstaller.Session = pi.openSession(sessId)
+
+            val fileBuffer = URL(fileUrl).readBytes()
+            var sizeBytes: Long = fileBuffer.size.toLong()
+
+            var inputStream = fileBuffer.inputStream()
+            var out = session.openWrite("my_app_session", 0, sizeBytes)
+
+            var total = 0
+            val buffer = ByteArray(65536)
+            var c: Int
+
+            while (inputStream.read(buffer).also { c = it } != -1) {
+                total += c
+                out.write(buffer, 0, c)
+            }
+
+            session.fsync(out)
+            inputStream.close()
+            out.close()
+
+            println("InstallApkViaPackageInstaller - Success: streamed apk $total bytes")
+
+            val intent = (context as MainActivity).intent
+
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                0
+            )
+            session.commit(pendingIntent.intentSender)
+            session.close()
+        }
     }
 }
-
-
-
