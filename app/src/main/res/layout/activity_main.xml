@@ -32,7 +32,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageButton
-        android:id="@+id/mobileDataToggle"
+        android:id="@+id/network_bt"
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:layout_marginStart="24dp"
@@ -60,8 +60,8 @@
         android:layout_marginBottom="5dp"
         android:text="ინტერნეტი"
         android:textColor="@android:color/white"
-        app:layout_constraintBottom_toTopOf="@+id/mobileDataToggle"
-        app:layout_constraintStart_toStartOf="@+id/mobileDataToggle" />
+        app:layout_constraintBottom_toTopOf="@+id/network_bt"
+        app:layout_constraintStart_toStartOf="@+id/network_bt" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -89,10 +89,10 @@
         android:layout_height="0dp"
         android:layout_marginStart="45dp"
         android:layout_marginEnd="45dp"
-        app:layout_constraintBottom_toBottomOf="@+id/mobileDataToggle"
+        app:layout_constraintBottom_toBottomOf="@+id/network_bt"
         app:layout_constraintEnd_toStartOf="@+id/refreshBT"
-        app:layout_constraintStart_toEndOf="@+id/mobileDataToggle"
-        app:layout_constraintTop_toTopOf="@+id/mobileDataToggle"
+        app:layout_constraintStart_toEndOf="@+id/network_bt"
+        app:layout_constraintTop_toTopOf="@+id/network_bt"
         android:orientation="vertical"
         android:gravity="center_horizontal"
         >
@@ -116,7 +116,7 @@
     </LinearLayout>
 
     <Button
-        android:id="@+id/exit_button"
+        android:id="@+id/toggle_lock_task_mode_bt"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="24dp"

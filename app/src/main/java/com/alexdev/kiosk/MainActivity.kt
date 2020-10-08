@@ -1,45 +1,21 @@
 package com.alexdev.kiosk
 
-import android.app.AlertDialog
 import android.app.Dialog
-import android.app.PendingIntent
-import android.app.ProgressDialog
-import android.app.admin.DevicePolicyManager
-import android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_HOME
-import android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS
-import android.app.admin.SystemUpdatePolicy
 import android.content.*
-import android.content.pm.PackageInstaller
-import android.content.pm.PackageInstaller.ACTION_SESSION_COMMITTED
-import android.content.pm.PackageInstaller.SessionParams
 import android.content.pm.PackageManager
 import android.content.pm.PackageManager.GET_META_DATA
-import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
-import android.net.Uri
 import android.os.BatteryManager
-import android.os.Build
 import android.os.Bundle
-import android.os.UserManager
 import android.provider.Settings
-import android.util.Log
-import android.view.Gravity
-import android.view.LayoutInflater
-import android.view.View
 import android.view.WindowManager
 import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
-import kotlinx.serialization.json.Json
-import java.net.URL
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 
-class MainActivity : AppCompatActivity() {
-    private lateinit var mAdminComponentName: ComponentName
-    private lateinit var mDevicePolicyManager: DevicePolicyManager
-
+class MainActivity : OwnerActivity() {
     private var kioskEnabled : Boolean = false;
-
-    private val KIOSK_PACKAGE: String = "com.alexdev.kiosk"
 
     val allowedPackages = arrayOf(
         "com.artmedia.nasosi",
@@ -54,25 +30,113 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         setContentView(R.layout.activity_main)
 
-        mAdminComponentName = AdminReceiver.getComponentName(this)
-        mDevicePolicyManager =
-            getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        initGridView()
+        initNetworkButton()
+        initRefreshButton()
+        initToggleButton()
+        initBatteryIndicator()
+
+        startHeaderService()
+
+        checkUpdates()
+    }
+
+    private fun startHeaderService(){
+        println("start service")
+
+        val headerServiceIntent = Intent(this,HeaderService::class.java)
+        startService(headerServiceIntent)
+    }
+
+    private fun checkUpdates() {
+        GlobalScope.launch {
+            try {
+                val shouldUpdate = MyPackageInstaller.checkPackageVersion(this@MainActivity)
+                println(shouldUpdate)
+
+                if (shouldUpdate) {
+                    runOnUiThread {
+                        val progressDialog = Dialog(this@MainActivity)
+                        progressDialog.setContentView(R.layout.progress_layout)
+                        progressDialog.setCancelable(false)
+                        progressDialog.show()
+                    }
+                }
+            } catch (ex: Exception) {
+                println(ex.message)
+                ex.printStackTrace()
+            }
+        }
+    }
+
+    private fun initToggleButton(){
+        val toggleLockTaskButton = findViewById<Button>(R.id.toggle_lock_task_mode_bt)
+
+        toggleLockTaskButton.setOnClickListener {
+            if (isAdmin()) {
+                kioskEnabled = !kioskEnabled
+
+                //setKioskPolicies(kioskEnabled, allowedPackages)
+
+                toggleLockTaskButton.text = if (kioskEnabled) "გამორთვა" else "ჩართვა"
+
+
+                val intent = Intent("com.alexdev.kiosk.toggle_header_service")
+                intent.putExtra("toggle", kioskEnabled)
+                sendBroadcast(intent)
+
+            }
+        }
+    }
+
+    private fun initRefreshButton(){
+        val refreshButton = findViewById<ImageButton>(R.id.refreshBT)
+
+        refreshButton.setOnClickListener {
+            finish()
+            startActivity(intent)
+        }
+    }
+
+    private fun initNetworkButton() {
+        val networkButton = findViewById<ImageButton>(R.id.network_bt)
+
+        networkButton.setOnClickListener {
+            val intent = Intent(Settings.ACTION_WIRELESS_SETTINGS);
+            startActivity(intent)
+        }
+    }
+
+    private fun initGridView(){
 
         val gridView = findViewById<GridView>(R.id.gridView)
 
         val apps: MutableList<AppView> = mutableListOf<AppView>()
 
         allowedPackages.forEach {
-            addApp(it)?.let { appView ->
-                apps.add(appView);
+            try {
+                val icon: Drawable = packageManager.getApplicationIcon(it)
+                val name: String = packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(
+                        it,
+                        GET_META_DATA
+                    )
+                ).toString()
+
+                apps.add(AppView(name, icon, it))
+
+
+            } catch (e: PackageManager.NameNotFoundException) {
+                e.printStackTrace()
             }
         }
 
-        gridView.setAdapter(MyGridAdapter(this, apps.toTypedArray()))
+        gridView.adapter = MyGridAdapter(this, apps.toTypedArray())
 
         gridView.setOnItemClickListener { _, _, i, _ ->
             run {
@@ -84,93 +148,9 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
-        val imageButton = findViewById<ImageButton>(R.id.mobileDataToggle)
-
-        imageButton.setOnClickListener {
-            setMobileDataEnabled()
-        }
-
-        val refreshBT = findViewById<ImageButton>(R.id.refreshBT)
-
-        refreshBT.setOnClickListener {
-            finish()
-            startActivity(intent)
-        }
-
-        val exitBT = findViewById<Button>(R.id.exit_button)
-
-        exitBT.setOnClickListener {
-            if (isAdmin()) {
-                kioskEnabled = !kioskEnabled
-
-                setKioskPolicies(kioskEnabled)
-
-                exitBT.text = if(kioskEnabled) "გამორთვა" else "ჩართვა"
-
-            }
-        }
-
-        batteryLevel();
-
-        addHomeButton()
-
-        Thread(Runnable {
-            try {
-                val shouldUpdate = test.checkPackageVersion(this)
-
-                if(shouldUpdate){
-                    val progressDialog = Dialog(this)
-                    progressDialog.setContentView(R.layout.progress_layout)
-                    progressDialog.show()
-                }
-            } catch (ex: Exception) {
-                println("errorrrrr:   " + ex.message)
-                ex.printStackTrace()
-            }
-        }).start()
     }
 
-    private fun addApp(packageName: String): AppView? {
-        try {
-            val icon: Drawable = packageManager.getApplicationIcon(packageName)
-            val name: String = packageManager.getApplicationLabel(
-                packageManager.getApplicationInfo(
-                    packageName,
-                    GET_META_DATA
-                )
-            ).toString()
-
-            return AppView(name, icon, packageName);
-
-        } catch (e: PackageManager.NameNotFoundException) {
-            e.printStackTrace()
-        }
-
-        return null;
-    }
-
-    private fun isAdmin() = mDevicePolicyManager.isDeviceOwnerApp(packageName)
-
-    fun setMobileDataEnabled() {
-        val intent = Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS);
-        startActivity(intent)
-    }
-
-    private fun setKioskPolicies(enable: Boolean) {
-        setRestrictions(enable)
-        //setUpdatePolicy(enable)
-        setAsHomeApp(enable)
-        setKeyGuardEnabled(enable)
-        setLockTask(enable)
-        //setImmersiveMode(enable)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            mDevicePolicyManager.setLockTaskFeatures(mAdminComponentName, LOCK_TASK_FEATURE_HOME or LOCK_TASK_FEATURE_NOTIFICATIONS)
-        };
-    }
-
-    private fun batteryLevel() {
+    private fun initBatteryIndicator() {
         val batteryLevelReceiver: BroadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val rawlevel = intent.getIntExtra("level", -1)
@@ -184,219 +164,17 @@ class MainActivity : AppCompatActivity() {
                 batteryLevelProgress.progress = level
 
                 val charger = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
-                val plugged =
-                    charger == BatteryManager.BATTERY_PLUGGED_AC ||
-                            charger == BatteryManager.BATTERY_PLUGGED_USB ||
-                            charger == BatteryManager.BATTERY_PLUGGED_WIRELESS;
+                val plugged = charger == BatteryManager.BATTERY_PLUGGED_AC ||
+                        charger == BatteryManager.BATTERY_PLUGGED_USB ||
+                        charger == BatteryManager.BATTERY_PLUGGED_WIRELESS;
 
-                Log.i("AAAAA", plugged.toString());
+                val indicatorColor = getColor(if (plugged) R.color.colorAccentDark else R.color.notCharingColor)
 
-                batteryLevelProgress.setBackgroundColor(getColor(if (plugged) R.color.colorAccentDark else R.color.notCharingColor));
+                batteryLevelProgress.setBackgroundColor(indicatorColor)
 
             }
         }
         val batteryLevelFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         registerReceiver(batteryLevelReceiver, batteryLevelFilter)
-    }
-
-    private fun setRestrictions(disallow: Boolean) {
-        setUserRestriction(UserManager.DISALLOW_SAFE_BOOT, disallow)
-        setUserRestriction(UserManager.DISALLOW_FACTORY_RESET, disallow)
-        setUserRestriction(UserManager.DISALLOW_ADD_USER, disallow)
-        setUserRestriction(UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, false)
-         setUserRestriction(UserManager.DISALLOW_ADJUST_VOLUME, false)
-        setUserRestriction(UserManager.DISALLOW_CONFIG_TETHERING, disallow)
-       // mDevicePolicyManager.setStatusBarDisabled(mAdminComponentName, disallow)
-    }
-
-    private fun setUserRestriction(restriction: String, disallow: Boolean) = if (disallow) {
-        mDevicePolicyManager.addUserRestriction(mAdminComponentName, restriction)
-    } else {
-        mDevicePolicyManager.clearUserRestriction(mAdminComponentName, restriction)
-    }
-
-    private fun setLockTask(start: Boolean) {
-        val list: MutableList<String> = allowedPackages.toMutableList()
-        list.add(packageName)
-
-        mDevicePolicyManager.setLockTaskPackages(
-            mAdminComponentName, if (start) list.toTypedArray() else arrayOf()
-        )
-
-        if (start) {
-            startLockTask()
-        } else {
-            stopLockTask()
-        }
-    }
-
-    private fun setUpdatePolicy(enable: Boolean) {
-        if (enable) {
-            mDevicePolicyManager.setSystemUpdatePolicy(
-                mAdminComponentName,
-                SystemUpdatePolicy.createWindowedInstallPolicy(60, 120)
-            )
-        } else {
-            mDevicePolicyManager.setSystemUpdatePolicy(mAdminComponentName, null)
-        }
-    }
-
-    private fun setAsHomeApp(enable: Boolean) {
-        if (enable) {
-            val intentFilter = IntentFilter(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_HOME)
-                addCategory(Intent.CATEGORY_DEFAULT)
-            }
-            mDevicePolicyManager.addPersistentPreferredActivity(
-                mAdminComponentName,
-                intentFilter,
-                ComponentName(packageName, MainActivity::class.java.name)
-            )
-        } else {
-            mDevicePolicyManager.clearPackagePersistentPreferredActivities(
-                mAdminComponentName, packageName
-            )
-        }
-    }
-
-    private fun setKeyGuardEnabled(enable: Boolean) {
-        mDevicePolicyManager.setKeyguardDisabled(mAdminComponentName, !enable)
-    }
-
-    private fun setImmersiveMode(enable: Boolean) {
-        if (enable) {
-            val flags = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
-            window.decorView.systemUiVisibility = flags
-        } else {
-            val flags = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
-            window.decorView.systemUiVisibility = flags
-        }
-    }
-
-    override fun onBackPressed() {
-        return
-    }
-
-    private fun addHomeButton(){
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-                startActivity(intent)
-            }
-        }
-
-
-        val mLauncherHeader = LayoutInflater.from(this).inflate(R.layout.home_button, null)
-
-        val LAYOUT_FLAG: Int
-        LAYOUT_FLAG = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
-
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            LAYOUT_FLAG,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                    or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
-                    or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        )
-
-
-        params.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-
-        params.height = 100
-        params.width = 130
-
-        val mWindowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-       mWindowManager.addView(mLauncherHeader, params)
-
-        val homeBT = mLauncherHeader.findViewById<ImageButton>(R.id.home_bt)
-
-        homeBT.setOnClickListener {
-            startActivity(intent)
-        }
-    }
-}
-
-
-
-class test {
-    companion object {
-        fun checkPackageVersion(context: Context) : Boolean {
-            val text = URL("http://artmedia.ge/app/nasos_launcher").readText()
-            val data = Json.parseJson(text)
-            val url = data.jsonObject["update_url"].toString()
-            val version = data.jsonObject["version"].toString()
-
-            try {
-                val appInfo = context.packageManager.getPackageInfo("com.artmedia.nasosi", 0)
-                println(appInfo.versionName)
-                println(version)
-
-                if (version != appInfo.versionName) {
-                    test.installPackage(context, url)
-                    return true
-                }
-            }catch (e: java.lang.Exception){
-                println(e)
-                return false
-            }
-
-            return false
-        }
-
-        fun installPackage( context: Context,fileUrl: String) {
-            val pi = context.packageManager.packageInstaller
-            val sessId: Int = pi.createSession(SessionParams(SessionParams.MODE_FULL_INSTALL))
-
-            val session: PackageInstaller.Session = pi.openSession(sessId)
-
-            val fileBuffer = URL(fileUrl).readBytes()
-            var sizeBytes: Long = fileBuffer.size.toLong()
-
-            var inputStream = fileBuffer.inputStream()
-            var out = session.openWrite("my_app_session", 0, sizeBytes)
-
-            var total = 0
-            val buffer = ByteArray(65536)
-            var c: Int
-
-            while (inputStream.read(buffer).also { c = it } != -1) {
-                total += c
-                out.write(buffer, 0, c)
-            }
-
-            session.fsync(out)
-            inputStream.close()
-            out.close()
-
-            println("InstallApkViaPackageInstaller - Success: streamed apk $total bytes")
-
-            val intent = (context as MainActivity).intent
-
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                0,
-                intent,
-                0
-            )
-            session.commit(pendingIntent.intentSender)
-            session.close()
-        }
     }
 }

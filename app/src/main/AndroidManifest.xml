@@ -39,6 +39,14 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
+
+        <receiver android:name=".HeaderServiceToggleReceiver" android:enabled="true" android:exported="true">
+            <intent-filter>
+                <action android:name="com.alexdev.kiosk.toggle_header_service" />
+            </intent-filter>
+        </receiver>
+
+        <service android:name=".HeaderService"/>
     </application>
 
 </manifest>
